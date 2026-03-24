@@ -27,6 +27,11 @@ class Property extends Model
         return $this->hasMany(Tenant::class);
     }
 
+    public function images(): HasMany
+    {
+        return $this->hasMany(PropertyImage::class);
+    }
+
     // Accessors
     public function getTotalRoomsAttribute(): int
     {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\PropertyImageController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\ContractController;
@@ -21,4 +22,12 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('tenants', TenantController::class);
     Route::apiResource('contracts', ContractController::class);
     Route::apiResource('invoices', InvoiceController::class);
+
+    // Property image management
+    Route::prefix('properties/{property}/images')->group(function () {
+        Route::post('/',                [PropertyImageController::class, 'store']);
+        Route::post('/reorder',         [PropertyImageController::class, 'reorder']);
+        Route::post('/{image}/set-main',[PropertyImageController::class, 'setMain']);
+        Route::delete('/{image}',       [PropertyImageController::class, 'destroy']);
+    });
 });

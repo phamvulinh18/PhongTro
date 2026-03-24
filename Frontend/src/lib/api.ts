@@ -31,6 +31,25 @@ export const api = {
   updateProperty: (id: number, data: any) => request<any>(`/properties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteProperty: (id: number) => request<any>(`/properties/${id}`, { method: 'DELETE' }),
 
+  // Property images (multipart - no JSON Content-Type)
+  uploadPropertyImages: (propertyId: number, files: File[]) => {
+    const form = new FormData()
+    files.forEach(f => form.append('images[]', f))
+    return fetch(`${API_BASE}/properties/${propertyId}/images`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: form,
+    }).then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || `HTTP ${r.status}`); return r.json() })
+  },
+  setMainPropertyImage: (propertyId: number, imageId: number) =>
+    request<any>(`/properties/${propertyId}/images/${imageId}/set-main`, { method: 'POST' }),
+  deletePropertyImage: (propertyId: number, imageId: number) =>
+    request<any>(`/properties/${propertyId}/images/${imageId}`, { method: 'DELETE' }),
+  reorderPropertyImages: (propertyId: number, order: number[]) =>
+    request<any>(`/properties/${propertyId}/images/reorder`, { method: 'POST', body: JSON.stringify({ order }) }),
+
+
+
   // Rooms
   getRooms: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
