@@ -18,6 +18,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string
   cancelLabel?: string
   variant?: 'default' | 'destructive'
+  destructive?: boolean
 }
 
 export function ConfirmDialog({
@@ -29,13 +30,16 @@ export function ConfirmDialog({
   confirmLabel = 'Xác nhận',
   cancelLabel = 'Hủy',
   variant = 'default',
+  destructive,
 }: ConfirmDialogProps) {
+  const isDestructive = destructive || variant === 'destructive'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            {variant === 'destructive' && (
+            {isDestructive && (
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
@@ -51,7 +55,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={variant === 'destructive' ? 'destructive' : 'default'}
+            variant={isDestructive ? 'destructive' : 'default'}
             onClick={() => {
               onConfirm()
               onOpenChange(false)

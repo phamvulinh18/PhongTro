@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/toast'
+import { Lightbox } from '@/components/ui/lightbox'
 import {
   Plus, Pencil, Trash2, Building2, MapPin, Phone, DoorOpen,
   DoorClosed, Users, ChevronRight, Search, X, Wrench,
@@ -28,6 +29,8 @@ const STATUS_ROOM: Record<string, { label: string; color: string }> = {
 }
 
 const EMPTY_FORM = { name: '', address: '', phone: '', description: '', status: 'active' }
+const PROVINCE_API = 'https://provinces.open-api.vn/api'
+
 
 export default function PropertiesPage() {
   const queryClient = useQueryClient()
@@ -46,6 +49,62 @@ export default function PropertiesPage() {
   const [pendingImages, setPendingImages] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [uploadingId, setUploadingId] = useState<number | null>(null)
+
+  // Address cascading state
+  const [provinces, setProvinces] = useState<any[]>([])
+  const [districts, setDistricts] = useState<any[]>([])
+  const [wards, setWards] = useState<any[]>([])
+  const [selectedProvince, setSelectedProvince] = useState('')
+  const [selectedDistrict, setSelectedDistrict] = useState('')
+  const [selectedWard, setSelectedWard] = useState('')
+  const [specificAddress, setSpecificAddress] = useState('')
+
+  useEffect(() => {
+    fetch(`${PROVINCE_API}/p/`).then(r => r.json()).then(setProvinces).catch(() => {})
+  }, [])
+
+  const buildAddr = (s: string, w: string, d: string, p: string) => [s, w, d, p].filter(Boolean).join(', ')
+
+  const handleProvinceChange = (code: string) => {
+    setSelectedProvince(code); setSelectedDistrict(''); setSelectedWard(''); setDistricts([]); setWards([])
+    const pN = provinces.find((p: any) => String(p.code) === code)?.name || ''
+    setForm(prev => ({ ...prev, address: buildAddr(specificAddress, '', '', pN) }))
+    if (code) fetch(`${PROVINCE_API}/p/${code}?depth=2`).then(r => r.json()).then(d => setDistricts(d.districts || [])).catch(() => {})
+  }
+  const handleDistrictChange = (code: string) => {
+    setSelectedDistrict(code); setSelectedWard(''); setWards([])
+    const pN = provinces.find((p: any) => String(p.code) === selectedProvince)?.name || ''
+    const dN = districts.find((d: any) => String(d.code) === code)?.name || ''
+    setForm(prev => ({ ...prev, address: buildAddr(specificAddress, '', dN, pN) }))
+    if (code) fetch(`${PROVINCE_API}/d/${code}?depth=2`).then(r => r.json()).then(d => setWards(d.wards || [])).catch(() => {})
+  }
+  const handleWardChange = (code: string) => {
+    setSelectedWard(code)
+    const pN = provinces.find((p: any) => String(p.code) === selectedProvince)?.name || ''
+    const dN = districts.find((d: any) => String(d.code) === selectedDistrict)?.name || ''
+    const wN = wards.find((w: any) => String(w.code) === code)?.name || ''
+    setForm(prev => ({ ...prev, address: buildAddr(specificAddress, wN, dN, pN) }))
+  }
+  const handleSpecificAddr = (val: string) => {
+    setSpecificAddress(val)
+    const pN = provinces.find((p: any) => String(p.code) === selectedProvince)?.name || ''
+    const dN = districts.find((d: any) => String(d.code) === selectedDistrict)?.name || ''
+    const wN = wards.find((w: any) => String(w.code) === selectedWard)?.name || ''
+    setForm(prev => ({ ...prev, address: buildAddr(val, wN, dN, pN) }))
+  }
+
+
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [lightboxImages, setLightboxImages] = useState<any[]>([])
+
+  const openLightbox = (images: any[], index: number) => {
+    setLightboxImages(images)
+    setLightboxIndex(index)
+    setLightboxOpen(true)
+  }
 
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ['properties', search, statusFilter],
@@ -139,6 +198,7 @@ export default function PropertiesPage() {
   const openCreate = () => {
     setEditItem(null); setForm(EMPTY_FORM)
     setPendingImages([]); setPreviewUrls([])
+    setSelectedProvince(''); setSelectedDistrict(''); setSelectedWard(''); setSpecificAddress('')
     setDialogOpen(true)
   }
   const openEdit = (item: any, e?: React.MouseEvent) => {
@@ -150,7 +210,7 @@ export default function PropertiesPage() {
   }
 
   const filtered = properties.filter((p: any) => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.address.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.address?.toLowerCase().includes(search.toLowerCase())
     const matchStatus = !statusFilter || p.status === statusFilter
     return matchSearch && matchStatus
   })
@@ -186,7 +246,7 @@ export default function PropertiesPage() {
               {[1,2,3].map(i => <div key={i} className="h-64 rounded-xl border bg-muted/40 animate-pulse" />)}
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyState icon={Building2} title="Chưa có nhà trọ" description="Thêm nhà trọ đầu tiên" actionLabel="Thêm nhà trọ" onAction={openCreate} />
+            <EmptyState icon={<Building2 className="h-12 w-12" />} title="Chưa có nhà trọ" description="Thêm nhà trọ đầu tiên" />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((p: any) => {
@@ -206,7 +266,7 @@ export default function PropertiesPage() {
                     {/* Cover image */}
                     <div className="relative h-36 bg-muted/30 overflow-hidden">
                       {mainImg ? (
-                        <img src={mainImg.url} alt={p.name} className="w-full h-full object-cover" />
+                        <img src={mainImg.url} alt={p.name} className="w-full h-full object-cover cursor-zoom-in" onClick={e => { e.stopPropagation(); openLightbox(p.images ?? [], 0) }} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <Building2 className="h-10 w-10 text-muted-foreground/30" />
@@ -316,7 +376,7 @@ export default function PropertiesPage() {
                     ) : (
                       <div className="grid grid-cols-3 gap-1.5">
                         {(detail?.images ?? []).map((img: any) => (
-                          <div key={img.id} className="relative group h-20 rounded-lg overflow-hidden border">
+                          <div key={img.id} className="relative group h-20 rounded-lg overflow-hidden border cursor-pointer" onClick={() => openLightbox(detail?.images ?? [], (detail?.images ?? []).indexOf(img))}>
                             <img src={img.url} alt="" className="w-full h-full object-cover" />
                             {img.is_main && (
                               <div className="absolute top-1 left-1 bg-amber-400 rounded-full p-0.5">
@@ -415,8 +475,36 @@ export default function PropertiesPage() {
               <Input placeholder="VD: Nhà trọ ABC" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="grid gap-2">
-              <Label>Địa chỉ <span className="text-destructive">*</span></Label>
-              <Input placeholder="Số, đường, quận, thành phố" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+              <Label>Tỉnh / Thành phố <span className="text-destructive">*</span></Label>
+              <Select value={selectedProvince} onValueChange={handleProvinceChange}>
+                <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                {provinces.map((p: any) => <option key={p.code} value={p.code}>{p.name}</option>)}
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Quận / Huyện <span className="text-destructive">*</span></Label>
+                <Select value={selectedDistrict} onValueChange={handleDistrictChange} disabled={!selectedProvince}>
+                  <option value="">-- Chọn Quận/Huyện --</option>
+                  {districts.map((d: any) => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Phường / Xã <span className="text-destructive">*</span></Label>
+                <Select value={selectedWard} onValueChange={handleWardChange} disabled={!selectedDistrict}>
+                  <option value="">-- Chọn Phường/Xã --</option>
+                  {wards.map((w: any) => <option key={w.code} value={w.code}>{w.name}</option>)}
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Địa chỉ cụ thể <span className="text-destructive">*</span></Label>
+              <Input placeholder="Số nhà, tên đường..." value={specificAddress} onChange={e => handleSpecificAddr(e.target.value)} />
+              {form.address && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> {form.address}
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -446,7 +534,50 @@ export default function PropertiesPage() {
             <div className="grid gap-2">
               <Label>Ảnh nhà trọ</Label>
               {editItem && (editItem.images ?? []).length > 0 && (
-                <p className="text-xs text-muted-foreground">Đã có {editItem.images.length} ảnh. Thêm ảnh mới bên dưới.</p>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Ảnh hiện tại ({editItem.images.length})</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(editItem.images ?? []).map((img: any, idx: number) => (
+                      <div key={img.id} className="relative group h-20 rounded-lg overflow-hidden border cursor-pointer"
+                        onClick={() => openLightbox(editItem.images, idx)}
+                      >
+                        <img src={img.url} alt="" className="w-full h-full object-cover" />
+                        {img.is_main && (
+                          <div className="absolute top-1 left-1 bg-amber-400 rounded-full p-0.5">
+                            <Star className="h-2.5 w-2.5 text-white fill-white" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                          {!img.is_main && (
+                            <button onClick={e => {
+                              e.stopPropagation()
+                              setMainMutation.mutate({ propertyId: editItem.id, imageId: img.id }, {
+                                onSuccess: () => {
+                                  // Update editItem images locally
+                                  const updated = editItem.images.map((i: any) => ({ ...i, is_main: i.id === img.id }))
+                                  setEditItem({ ...editItem, images: updated })
+                                }
+                              })
+                            }} className="bg-amber-400 rounded-full p-1 hover:bg-amber-500" title="Đặt ảnh chính">
+                              <Star className="h-3 w-3 text-white fill-white" />
+                            </button>
+                          )}
+                          <button onClick={e => {
+                            e.stopPropagation()
+                            deleteImageMutation.mutate({ propertyId: editItem.id, imageId: img.id }, {
+                              onSuccess: () => {
+                                const updated = editItem.images.filter((i: any) => i.id !== img.id)
+                                setEditItem({ ...editItem, images: updated })
+                              }
+                            })
+                          }} className="bg-red-500 rounded-full p-1 hover:bg-red-600" title="Xóa ảnh">
+                            <Trash2 className="h-3 w-3 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
               <div
                 className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-muted/20 transition-colors"
@@ -501,7 +632,15 @@ export default function PropertiesPage() {
         open={deleteId !== null} onOpenChange={() => setDeleteId(null)}
         title="Xóa nhà trọ"
         description="Bạn có chắc muốn xóa nhà trọ này? Tất cả phòng, hình ảnh và dữ liệu liên quan sẽ bị xóa vĩnh viễn."
-        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)} destructive
+        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)} variant="destructive"
+      />
+
+      {/* Lightbox */}
+      <Lightbox
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
       />
     </div>
   )

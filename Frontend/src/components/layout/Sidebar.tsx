@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard, Building2, DoorOpen, Users, FileText,
-  Receipt, BarChart3, Bot, Settings, ChevronLeft, ChevronRight, X,
+  Receipt, BarChart3, Bot, Settings, ChevronLeft, ChevronRight, X, Leaf,
 } from 'lucide-react'
 
 const menuItems = [
@@ -52,7 +52,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b px-4">
           <div className="flex items-center gap-3">
-            <img src="https://tromoi.com/logo.png" alt="PhòngTrọ" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+            <div className="h-9 w-9 shrink-0 rounded-xl bg-emerald-500 flex items-center justify-center">
+              <Leaf className="h-5 w-5 text-white" />
+            </div>
             {(!collapsed || mobileOpen) && (
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-sidebar-foreground">PhòngTrọ</span>
